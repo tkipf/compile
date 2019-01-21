@@ -183,16 +183,18 @@ class CompILE(nn.Module):
 
         sample_idx = 0  # Assume batch size = 1 (only reconstruct 1st sample).
         prev_boundary_pos = 0
-        rec_seq = []
+        rec_seq_parts = []
         for seg_id in range(self.max_num_segments):
             boundary_pos = torch.argmax(all_b['samples'][seg_id], dim=-1)
             if prev_boundary_pos > boundary_pos:
                 boundary_pos = prev_boundary_pos
             seg_rec_seq = torch.argmax(all_recs[seg_id], dim=-1)
-            rec_seq.append(
+            rec_seq_parts.append(
                 seg_rec_seq[sample_idx, prev_boundary_pos:boundary_pos])
             prev_boundary_pos = boundary_pos
-        return (torch.cat(rec_seq) == inputs[0, :-1]).float().mean()
+        rec_seq = torch.cat(rec_seq_parts)
+        rec_acc = (rec_seq == inputs[0, :-1]).float().mean()
+        return rec_acc, rec_seq
 
     def forward(self, inputs, evaluate=False):
 

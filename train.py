@@ -45,6 +45,8 @@ optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
 # Train model.
 print('Training model...')
 for step in range(args.iterations):
+    data = None
+    rec = None
     batch_loss = 0
     batch_acc = 0
     optimizer.zero_grad()
@@ -62,7 +64,7 @@ for step in range(args.iterations):
 
         # Run evaluation.
         model.eval()
-        acc = model.get_reconstruction_accuracy(data)
+        acc, rec = model.get_reconstruction_accuracy(data)
 
         # Accumulate metrics.
         batch_acc += acc.item() / args.batch_size
@@ -76,3 +78,5 @@ for step in range(args.iterations):
     if step % args.log_interval == 0:
         print('step: {}, nll_train: {:.6f}, rec_acc_eval: {:.3f}'.format(
             step, batch_loss, batch_acc))
+        print('sample input: {}'.format(data[0, :-1]))
+        print('reconstruction: {}'.format(rec))
