@@ -6,7 +6,7 @@ import utils
 
 
 class CompILE(nn.Module):
-    """CompILE model."""
+    """CompILE reference implementation (non-batched, single sample only)."""
     def __init__(self, input_dim, hidden_dim, latent_dim, max_num_segments,
                  temp_b=1., temp_z=1., beta_z=.1, beta_b=.1, prior_rate=3.,
                  latent_dist='gaussian'):
@@ -69,11 +69,15 @@ class CompILE(nn.Module):
             ones = torch.ones(encodings.size(0), 1)
             logits_b = None
             sample_b = torch.cat([zeros, ones], dim=1)
+            if encodings.is_cuda:
+                sample_b = sample_b.cuda()
         else:
             hidden = F.relu(self.head_b_1(encodings))
             logits_b = self.head_b_2(hidden).squeeze(-1)
             # Mask out first position with large neg. value.
             neg_inf = torch.ones(encodings.size(0), 1) * utils.NEG_INF
+            if encodings.is_cuda:
+                neg_inf = neg_inf.cuda()
             logits_b = torch.cat([neg_inf, logits_b[:, 1:]], dim=1)
             if not evaluate:
                 sample_b = utils.gumbel_softmax_sample(
@@ -110,7 +114,7 @@ class CompILE(nn.Module):
         return logits_z, sample_z
 
     def decode(self, sample_z, length):
-        """Decode single time step from latents and copy over seq. length."""
+        """Decode single time step from latents and repeat over full seq."""
         hidden = F.relu(self.decode_1(sample_z))
         pred = self.decode_2(hidden)
         return pred.unsqueeze(1).repeat(1, length, 1)
@@ -135,7 +139,7 @@ class CompILE(nn.Module):
             return neg_cumsum
 
     def get_losses(self, inputs):
-        """Get losses (NLL, Kl divergences and ELBO)."""
+        """Get losses (NLL, KL divergences and ELBO)."""
         targets = inputs.view(-1)
         all_encs, all_recs, all_masks, all_b, all_z = self.forward(inputs)
 
@@ -158,12 +162,14 @@ class CompILE(nn.Module):
                 kl_z += utils.kl_gaussian(mu, log_var).mean(0)
             elif self.latent_dist == 'concrete':
                 kl_z += utils.kl_categorical_uniform(
-                    F.softmax(all_z['logits'][seg_id])).mean(0)
+                    F.softmax(all_z['logits'][seg_id], dim=-1)).mean(0)
 
-        # KL divergence ob b (first segment only, ignore first and last step).
-        probs_b = F.softmax(all_b['logits'][0])
+        # KL divergence on b (first segment only, ignore first and last step).
+        probs_b = F.softmax(all_b['logits'][0], dim=-1)
         log_prior_b = utils.poisson_categorical_log_prior(
             probs_b.size(1), self.prior_rate)
+        if inputs.is_cuda:
+            log_prior_b = log_prior_b.cuda()
         kl_b = self.max_num_segments * utils.kl_categorical(
             probs_b[:, 1:-1], log_prior_b[:, 1:-1]).mean(0)
 
@@ -195,6 +201,8 @@ class CompILE(nn.Module):
 
         # Create initial mask.
         mask = torch.ones(inputs.size(0), inputs.size(1), 1)
+        if inputs.is_cuda:
+            mask = mask.cuda()
 
         all_b = {'logits': [], 'samples': []}
         all_z = {'logits': [], 'samples': []}

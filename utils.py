@@ -33,6 +33,8 @@ def gumbel_softmax_sample(logits, temp=1.):
 def gaussian_sample(mu, log_var):
     """Sample from Gaussian distribution."""
     gaussian_noise = torch.randn(mu.size())
+    if mu.is_cuda:
+        gaussian_noise = gaussian_noise.cuda()
     return mu + torch.exp(log_var * 0.5) * gaussian_noise
 
 
@@ -43,7 +45,7 @@ def kl_gaussian(mu, log_var):
 
 def kl_categorical_uniform(preds):
     """KL divergence between categorical distribution and uniform prior."""
-    kl_div = preds * torch.log(preds + EPS)  # Up to constant, can be negative.
+    kl_div = preds * torch.log(preds + EPS)  # Constant term omitted.
     return kl_div.sum(1)
 
 

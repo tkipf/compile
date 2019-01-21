@@ -23,7 +23,7 @@ parser.add_argument('--num-symbols', type=int, default=4,
 parser.add_argument('--num-segments', type=int, default=3,
                     help='Number of segments in data generation.')
 
-parser.add_argument('--no-cuda', action='store_true', default=False,
+parser.add_argument('--no-cuda', action='store_true', default=True,
                     help='Disable CUDA training.')
 parser.add_argument('--log-interval', type=int, default=1,
                     help='Logging interval.')
@@ -60,7 +60,7 @@ for step in range(args.iterations):
         model.train()
         loss, nll, kl_z, kl_b = model.get_losses(data)
 
-        # Run eval.
+        # Run evaluation.
         model.eval()
         acc = model.get_reconstruction_accuracy(data)
 
