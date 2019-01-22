@@ -5,20 +5,20 @@ import utils
 import modules
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--iterations', type=int, default=100,
+parser.add_argument('--iterations', type=int, default=200,
                     help='Number of training iterations.')
 parser.add_argument('--learning-rate', type=float, default=1e-2,
                     help='Learning rate.')
 parser.add_argument('--hidden-dim', type=int, default=64,
                     help='Number of hidden units.')
-parser.add_argument('--latent-dim', type=int, default=16,
+parser.add_argument('--latent-dim', type=int, default=32,
                     help='Dimensionality of latent variables.')
 parser.add_argument('--latent-dist', type=str, default='gaussian',
                     help='Choose: "gaussian" or "concrete" latent variables.')
-parser.add_argument('--batch-size', type=int, default=128,
+parser.add_argument('--batch-size', type=int, default=256,
                     help='Mini-batch size (for averaging gradients).')
 
-parser.add_argument('--num-symbols', type=int, default=4,
+parser.add_argument('--num-symbols', type=int, default=5,
                     help='Number of distinct symbols in data generation.')
 parser.add_argument('--num-segments', type=int, default=3,
                     help='Number of segments in data generation.')
@@ -78,5 +78,5 @@ for step in range(args.iterations):
     if step % args.log_interval == 0:
         print('step: {}, nll_train: {:.6f}, rec_acc_eval: {:.3f}'.format(
             step, batch_loss, batch_acc))
-        print('sample input: {}'.format(data[0, :-1]))
+        print('input sample: {}'.format(data[0, :-1]))
         print('reconstruction: {}'.format(rec))

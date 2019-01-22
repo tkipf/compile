@@ -66,10 +66,11 @@ def log_cumsum(probs, dim=1):
     return torch.log(torch.cumsum(probs, dim=dim) + EPS)
 
 
-def generate_toy_data(num_symbols=4, num_segments=3, max_segment_len=5):
+def generate_toy_data(num_symbols=5, num_segments=3, max_segment_len=5):
     """Generate toy data sample with repetition of symbols (EOS symbol: 0)."""
     seq = []
-    symbols = np.random.choice(np.arange(1, num_symbols), 3, replace=False)
+    symbols = np.random.choice(
+        np.arange(1, num_symbols + 1), num_segments, replace=False)
     for seg_id in range(num_segments):
         segment_len = np.random.choice(np.arange(1, max_segment_len))
         seq += [symbols[seg_id]] * segment_len

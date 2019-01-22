@@ -164,14 +164,14 @@ class CompILE(nn.Module):
                 kl_z += utils.kl_categorical_uniform(
                     F.softmax(all_z['logits'][seg_id], dim=-1)).mean(0)
 
-        # KL divergence on b (first segment only, ignore first and last step).
+        # KL divergence on b (first segment only, ignore first time step).
         probs_b = F.softmax(all_b['logits'][0], dim=-1)
         log_prior_b = utils.poisson_categorical_log_prior(
             probs_b.size(1), self.prior_rate)
         if inputs.is_cuda:
             log_prior_b = log_prior_b.cuda()
         kl_b = self.max_num_segments * utils.kl_categorical(
-            probs_b[:, 1:-1], log_prior_b[:, 1:-1]).mean(0)
+            probs_b[:, 1:], log_prior_b[:, 1:]).mean(0)
 
         elbo = nll + self.beta_z * kl_z + self.beta_b * kl_b
         return elbo, nll, kl_z, kl_b
