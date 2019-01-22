@@ -16,7 +16,7 @@ This is an example implementation of the CompILE model on a simple sequence segm
 We randomly generate sequences of the form `[NUM_1]*FREQ_1 + [NUM_2]*FREQ_2 + [NUM_3]*FREQ_3`, where `NUM_X` and `FREQ_X` are randomly drawn integers from a pre-defined range (with and without replacement, respectively). An example sequence looks as follows: `[4, 4, 5, 5, 5, 3, 3, 3]`. The CompILE model has to identify the correct segmentation (in this case: 3 segments) and encode each segment into a single latent variable, from which the respective segment will be reconstructed. The decoder is a simple two-layer MLP conditioned on the latent variable of the segment which outputs a single integer (as a categorical variable), which we repeat over the full sequence length to compute a loss.
 
 ## Running the model:
-Simply run `python train.py` to train the model with default settings on CPU. Please inspect `train.py` and `modules.py`
+Simply run `python train.py` to train the model with default settings on CPU. Please inspect `train.py` and `modules.py` for model details and details on default settings.
 
 During training, the script prints negative log likelihood (`nll_train`) and evaluation reconstruction accuracy (`rec_acc_eval`) after every training iteration (a single gradient step). `rec_acc_eval` corresponds to the average (per time step) reconstruction accuracy for a mini-batch of generated samples, where the model runs in evaluation mode (concrete latent variables replaced with discrete ones, and Gaussian latents are replaced by their predicted mean). `rec_acc_eval` of `1.00` corresponds to perfect segmentation and reconstruction in this particular task.
 
