@@ -6,9 +6,23 @@ import utils
 
 
 class CompILE(nn.Module):
-    """CompILE reference implementation (non-batched, single sample only)."""
+    """CompILE reference implementation (non-batched, single sample only).
+
+    Args:
+        input_dim: Dictionary size of embeddings.
+        hidden_dim: Number of hidden units.
+        latent_dim: Dimensionality of latent variables (z).
+        max_num_segments: Maximum number of segments to predict.
+        temp_b: Gumbel softmax temperature for boundary variables (b).
+        temp_z: Temperature for latents (z), only if latent_dist='concrete'.
+        beta_b: Scaling factor for KL term of boundary variables (b).
+        beta_z: Scaling factor for KL term of latents (z).
+        prior_rate: Rate (lambda) for Poisson prior.
+        latent_dist: Whether to use Gaussian latents ('gaussian') or concrete /
+            Gumbel softmax latents ('concrete').
+    """
     def __init__(self, input_dim, hidden_dim, latent_dim, max_num_segments,
-                 temp_b=1., temp_z=1., beta_z=.1, beta_b=.1, prior_rate=3.,
+                 temp_b=1., temp_z=1., beta_b=.1, beta_z=.1, prior_rate=3.,
                  latent_dist='gaussian'):
         super(CompILE, self).__init__()
 
