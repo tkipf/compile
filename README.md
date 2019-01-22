@@ -5,7 +5,7 @@ This is an example implementation of the CompILE model on a simple sequence segm
 ## Dependencies:
 * Python 3.6 or later
 * Numpy 1.15 or later
-* PyTorch 4.1 or later
+* PyTorch 0.4.1 or later
 
 ## Files:
 * `train.py`: Entry point, run `python train.py` to train the model.
