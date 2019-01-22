@@ -153,7 +153,7 @@ class CompILE(nn.Module):
             return neg_cumsum
 
     def get_losses(self, inputs):
-        """Get losses (NLL, KL divergences and ELBO)."""
+        """Get losses (NLL, KL divergences and neg. ELBO)."""
         targets = inputs.view(-1)
         all_encs, all_recs, all_masks, all_b, all_z = self.forward(inputs)
 
@@ -187,8 +187,8 @@ class CompILE(nn.Module):
         kl_b = self.max_num_segments * utils.kl_categorical(
             probs_b[:, 1:], log_prior_b[:, 1:]).mean(0)
 
-        elbo = nll + self.beta_z * kl_z + self.beta_b * kl_b
-        return elbo, nll, kl_z, kl_b
+        loss = nll + self.beta_z * kl_z + self.beta_b * kl_b
+        return loss, nll, kl_z, kl_b
 
     def get_reconstruction_accuracy(self, inputs):
         """Calculate reconstruction accuracy (averaged over sequence length)."""
