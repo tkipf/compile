@@ -1,6 +1,6 @@
 # CompILE implementation example
 
-This is an example implementation of the CompILE model on a simple sequence segmentation toy task in PyTorch with minimal dependencies. This implementation is optimized for readability rather than speed/efficiency, and operates on single samples instead of mini-batches of data. 
+This is an example implementation of the CompILE model for a sequence segmentation toy task in PyTorch with minimal dependencies. This implementation is optimized for readability rather than speed/efficiency, and operates on single samples instead of mini-batches of data. Instead of operating on state-action trajectories (pairs of state and action sequences), this simplified version of the CompILE model operates on a single input sequence.
 
 ## Dependencies:
 * Python 3.6 or later
@@ -20,7 +20,7 @@ Simply run `python train.py` to train the model with default settings on CPU. Pl
 
 During training, the script prints negative log likelihood (`nll_train`) and evaluation reconstruction accuracy (`rec_acc_eval`) after every training iteration (a single gradient step). `rec_acc_eval` corresponds to the average (per time step) reconstruction accuracy for a mini-batch of generated samples, where the model runs in evaluation mode (concrete latent variables replaced with discrete ones, and Gaussian latents are replaced by their predicted mean). `rec_acc_eval` of `1.00` corresponds to perfect segmentation and reconstruction in this particular task.
 
-The learning rate for Adam is chosen relatively high (`1e-2`) to reduce training time, which can however destabilize training in rare cases (for some random seeds). Please try reducing the learning rate to `1e-3` if you observe this effect. The default setting uses Gaussian latent variables (z) to encode segments. To train the model with concrete / Gumbel softmax latent variables, run `python train.py --latent-dist concrete`.
+This implementation uses a high learning rate of `1e-2` to reduce training time, which can however destabilize training in rare cases (for some random seeds). Please try reducing the learning rate to `1e-3` if you observe this effect. The default setting uses Gaussian latent variables (z) to encode segments. To train the model with concrete / Gumbel softmax latent variables, run `python train.py --latent-dist concrete`.
 
 Example run (`python train.py`):
 
