@@ -4,7 +4,7 @@ This is an example implementation of the CompILE model for a sequence segmentati
 
 ## Dependencies:
 * Python 3.6 or later
-* Numpy 1.15 or later
+* Numpy 1.14 or later
 * PyTorch 0.4.1 or later
 
 ## Files:
