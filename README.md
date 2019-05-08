@@ -2,6 +2,12 @@
 
 This is an example implementation of the CompILE model for a sequence segmentation toy task in PyTorch with minimal dependencies. This implementation is optimized for readability rather than speed/efficiency, and works with single samples instead of mini-batches of data. Instead of operating on state-action trajectories (pairs of state and action sequences), this simplified version of the CompILE model operates on a single input sequence.
 
+![Compositional Imitation Learning and Execution (CompILE)](compile.png)
+
+**CompILE: Compositional Imitation Learning and Execution (ICML 2019)**  
+Thomas Kipf, Yujia Li, Hanjun Dai, Vinicius Zambaldi, Alvaro Sanchez-Gonzalez, Edward Grefenstette, Pushmeet Kohli, Peter Battaglia.
+https://arxiv.org/abs/1812.01483
+
 ## Dependencies:
 * Python 3.6 or later
 * Numpy 1.14 or later
@@ -44,57 +50,7 @@ reconstruction: tensor([3, 3, 3, 3, 3, 1])
 step: 5, nll_train: 11.107215, rec_acc_eval: 0.611
 input sample: tensor([2, 2, 4, 5, 5, 5])
 reconstruction: tensor([2, 5, 5, 5, 5, 5])
-step: 6, nll_train: 10.142213, rec_acc_eval: 0.674
-input sample: tensor([5, 5, 5, 3, 3, 3, 3, 4, 4, 4, 4])
-reconstruction: tensor([5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4])
-step: 7, nll_train: 9.297485, rec_acc_eval: 0.639
-input sample: tensor([5, 5, 5, 5, 3, 4, 4, 4])
-reconstruction: tensor([5, 5, 5, 4, 4, 4, 4, 4])
-step: 8, nll_train: 8.644855, rec_acc_eval: 0.638
-input sample: tensor([5, 5, 5, 5, 2, 2, 3])
-reconstruction: tensor([5, 5, 2, 2, 2, 2, 2])
-step: 9, nll_train: 7.950069, rec_acc_eval: 0.741
-input sample: tensor([2, 5, 5, 5, 5, 3, 3])
-reconstruction: tensor([2, 5, 5, 5, 5, 5, 5])
-step: 10, nll_train: 7.444612, rec_acc_eval: 0.833
-input sample: tensor([1, 1, 1, 4, 4, 5])
-reconstruction: tensor([1, 1, 1, 4, 5, 5])
-step: 11, nll_train: 6.921782, rec_acc_eval: 0.903
-input sample: tensor([1, 2, 2, 2, 2, 5, 5])
-reconstruction: tensor([1, 2, 2, 2, 2, 5, 5])
-step: 12, nll_train: 6.760701, rec_acc_eval: 0.912
-input sample: tensor([4, 2, 5, 5, 5])
-reconstruction: tensor([4, 2, 5, 5, 5])
-step: 13, nll_train: 5.633484, rec_acc_eval: 0.937
-input sample: tensor([2, 4, 4, 4, 4, 5, 5, 5, 5])
-reconstruction: tensor([2, 4, 4, 4, 4, 5, 5, 5, 5])
-step: 14, nll_train: 6.476520, rec_acc_eval: 0.923
-input sample: tensor([5, 5, 1, 1, 4, 4])
-reconstruction: tensor([5, 5, 1, 1, 4, 4])
-step: 15, nll_train: 4.534423, rec_acc_eval: 0.965
-input sample: tensor([2, 2, 2, 4, 4, 4, 4, 1, 1])
-reconstruction: tensor([2, 2, 2, 4, 4, 4, 4, 1, 1])
-step: 16, nll_train: 4.091990, rec_acc_eval: 0.953
-input sample: tensor([4, 4, 5, 5, 5, 5, 1, 1, 1, 1])
-reconstruction: tensor([4, 4, 5, 5, 5, 5, 1, 1, 1, 1])
-step: 17, nll_train: 3.090653, rec_acc_eval: 0.989
-input sample: tensor([5, 5, 4, 4, 4, 2, 2])
-reconstruction: tensor([5, 5, 4, 4, 4, 2, 2])
-step: 18, nll_train: 2.511392, rec_acc_eval: 0.995
-input sample: tensor([2, 2, 2, 4, 3, 3])
-reconstruction: tensor([2, 2, 2, 4, 3, 3])
-step: 19, nll_train: 1.535790, rec_acc_eval: 0.997
-input sample: tensor([4, 4, 4, 3, 3, 1])
-reconstruction: tensor([4, 4, 4, 3, 3, 1])
-step: 20, nll_train: 1.485223, rec_acc_eval: 0.992
-input sample: tensor([2, 2, 2, 3, 3, 1, 1])
-reconstruction: tensor([2, 2, 2, 3, 3, 1, 1])
-step: 21, nll_train: 1.094403, rec_acc_eval: 0.996
-input sample: tensor([3, 3, 3, 3, 1, 1, 1, 4, 4, 4])
-reconstruction: tensor([3, 3, 3, 3, 1, 1, 1, 4, 4, 4])
-step: 22, nll_train: 0.720283, rec_acc_eval: 0.998
-input sample: tensor([1, 1, 1, 1, 2, 2, 4, 4, 4])
-reconstruction: tensor([1, 1, 1, 1, 2, 2, 4, 4, 4])
+...
 step: 23, nll_train: 0.785404, rec_acc_eval: 0.994
 input sample: tensor([1, 1, 1, 5, 5, 4])
 reconstruction: tensor([1, 1, 1, 5, 5, 4])
@@ -104,4 +60,15 @@ reconstruction: tensor([5, 3, 4, 4])
 step: 25, nll_train: 0.618572, rec_acc_eval: 1.000
 input sample: tensor([5, 5, 5, 5, 2, 2, 1, 1, 1, 1])
 reconstruction: tensor([5, 5, 5, 5, 2, 2, 1, 1, 1, 1])
+```
+
+### Cite
+If you make use of this code in your own work, please cite our paper:
+```
+@inproceedings{kipf2019compositional,
+  title={CompILE: Compositional Imitation Learning and Execution},
+  author={Kipf, Thomas and Li, Yujia and Dai, Hanjun and Zambaldi, Vinicius and Sanchez-Gonzalez, Alvaro and Grefenstette, Edward and Kohli, Pushmeet and Battaglia, Peter},
+  booktitle={International Conference on Machine Learning (ICML)},
+  year={2019}
+}
 ```
