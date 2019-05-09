@@ -182,8 +182,6 @@ class CompILE(nn.Module):
         probs_b = F.softmax(all_b['logits'][0], dim=-1)
         log_prior_b = utils.poisson_categorical_log_prior(
             probs_b.size(1), self.prior_rate, device=inputs.device)
-        if inputs.is_cuda:
-            log_prior_b = log_prior_b.cuda()
         kl_b = self.max_num_segments * utils.kl_categorical(
             probs_b[:, 1:], log_prior_b[:, 1:]).mean(0)
 
