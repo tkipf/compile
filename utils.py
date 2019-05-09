@@ -55,10 +55,13 @@ def kl_categorical(preds, log_prior):
     return kl_div.sum(1)
 
 
-def poisson_categorical_log_prior(length, rate):
+def poisson_categorical_log_prior(length, rate, device):
     """Categorical prior populated with log probabilities of Poisson dist."""
-    values = torch.arange(1, length + 1, dtype=torch.float32).unsqueeze(0)
-    log_prob_unnormalized = np.log(rate) * values - rate - (values + 1).lgamma()
+    rate = torch.tensor(rate, dtype=torch.float32, device=device)
+    values = torch.arange(
+        1, length + 1, dtype=torch.float32, device=device).unsqueeze(0)
+    log_prob_unnormalized = torch.log(
+        rate) * values - rate - (values + 1).lgamma()
     return F.log_softmax(log_prob_unnormalized, dim=1)  # Normalize.
 
 
