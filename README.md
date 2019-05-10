@@ -32,7 +32,6 @@ Example run (`python train.py`):
 
 ```
 Training model...
-Training model...
 step: 0, nll_train: 16.967497, rec_acc_eval: 0.199
 input sample: tensor([4, 4, 4, 5, 5, 5, 5, 2, 2, 2])
 reconstruction: tensor([5, 5, 5, 5, 5, 5, 5, 5, 5, 5])
