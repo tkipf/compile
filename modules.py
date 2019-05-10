@@ -178,6 +178,7 @@ class CompILE(nn.Module):
                     F.softmax(all_z['logits'][seg_id], dim=-1)).mean(0)
 
         # KL divergence on b (first segment only, ignore first time step).
+        # TODO(tkipf): Implement alternative prior on soft segment length.
         probs_b = F.softmax(all_b['logits'][0], dim=-1)
         log_prior_b = utils.poisson_categorical_log_prior(
             probs_b.size(1), self.prior_rate, device=inputs.device)
