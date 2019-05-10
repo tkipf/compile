@@ -6,7 +6,7 @@ import utils
 
 
 class CompILE(nn.Module):
-    """CompILE example implementation (non-batched, single sample only).
+    """CompILE example implementation.
 
     Args:
         input_dim: Dictionary size of embeddings.
