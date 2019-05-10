@@ -70,28 +70,25 @@ class CompILE(nn.Module):
         outputs = []
         for step in range(inputs.size(1)):
             hidden = self.lstm_cell(inputs[:, step], hidden)
-            hidden = (mask[:, step] * hidden[0],
-                      mask[:, step] * hidden[1])  # Apply mask.
+            hidden = (mask[:, step, None] * hidden[0],
+                      mask[:, step, None] * hidden[1])  # Apply mask.
             outputs.append(hidden[0])
         return torch.stack(outputs, dim=1)
 
-    def get_boundaries(self, encodings, segment_id, evaluate=False):
+    def get_boundaries(self, encodings, segment_id, lengths, evaluate=False):
         """Get boundaries (b) for a single segment in batch."""
         if segment_id == self.max_num_segments - 1:
             # Last boundary is always placed on last sequence element.
-            zeros = torch.zeros(encodings.size(0), encodings.size(1) - 1)
-            ones = torch.ones(encodings.size(0), 1)
             logits_b = None
-            sample_b = torch.cat([zeros, ones], dim=1)
-            if encodings.is_cuda:
-                sample_b = sample_b.cuda()
+            sample_b = torch.zeros_like(encodings[:, :, 0]).scatter_(
+                1, lengths.unsqueeze(1) - 1, 1)
         else:
             hidden = F.relu(self.head_b_1(encodings))
             logits_b = self.head_b_2(hidden).squeeze(-1)
             # Mask out first position with large neg. value.
-            neg_inf = torch.ones(encodings.size(0), 1) * utils.NEG_INF
-            if encodings.is_cuda:
-                neg_inf = neg_inf.cuda()
+            neg_inf = torch.ones(
+                encodings.size(0), 1, device=encodings.device) * utils.NEG_INF
+            # TODO(tkipf): Mask out padded positions with large neg. value.
             logits_b = torch.cat([neg_inf, logits_b[:, 1:]], dim=1)
             if not evaluate:
                 sample_b = utils.gumbel_softmax_sample(
@@ -99,6 +96,7 @@ class CompILE(nn.Module):
             else:
                 sample_b_idx = torch.argmax(logits_b, dim=1)
                 sample_b = utils.to_one_hot(sample_b_idx, logits_b.size(1))
+
         return logits_b, sample_b
 
     def get_latents(self, encodings, probs_b, evaluate=False):
@@ -152,10 +150,11 @@ class CompILE(nn.Module):
         else:
             return neg_cumsum
 
-    def get_losses(self, inputs):
+    def get_losses(self, inputs, lengths):
         """Get losses (NLL, KL divergences and neg. ELBO)."""
         targets = inputs.view(-1)
-        all_encs, all_recs, all_masks, all_b, all_z = self.forward(inputs)
+        all_encs, all_recs, all_masks, all_b, all_z = self.forward(
+            inputs, lengths)
 
         nll = 0.
         kl_z = 0.
@@ -188,35 +187,42 @@ class CompILE(nn.Module):
         loss = nll + self.beta_z * kl_z + self.beta_b * kl_b
         return loss, nll, kl_z, kl_b
 
-    def get_reconstruction_accuracy(self, inputs):
+    def get_reconstruction_accuracy(self, inputs, lengths):
         """Calculate reconstruction accuracy (averaged over sequence length)."""
         all_encs, all_recs, all_masks, all_b, all_z = self.forward(
-            inputs, evaluate=True)
+            inputs, lengths, evaluate=True)
 
-        sample_idx = 0  # Assume batch size = 1 (only reconstruct 1st sample).
-        prev_boundary_pos = 0
-        rec_seq_parts = []
-        for seg_id in range(self.max_num_segments):
-            boundary_pos = torch.argmax(all_b['samples'][seg_id], dim=-1)
-            if prev_boundary_pos > boundary_pos:
-                boundary_pos = prev_boundary_pos
-            seg_rec_seq = torch.argmax(all_recs[seg_id], dim=-1)
-            rec_seq_parts.append(
-                seg_rec_seq[sample_idx, prev_boundary_pos:boundary_pos])
-            prev_boundary_pos = boundary_pos
-        rec_seq = torch.cat(rec_seq_parts)
-        rec_acc = (rec_seq == inputs[0, :-1]).float().mean()
+        batch_size = inputs.size(0)
+
+        rec_seq = None
+        rec_acc = 0.
+        for sample_idx in range(batch_size):
+            prev_boundary_pos = 0
+            rec_seq_parts = []
+            for seg_id in range(self.max_num_segments):
+                boundary_pos = torch.argmax(
+                    all_b['samples'][seg_id], dim=-1)[sample_idx]
+                if prev_boundary_pos > boundary_pos:
+                    boundary_pos = prev_boundary_pos
+                seg_rec_seq = torch.argmax(all_recs[seg_id], dim=-1)
+                rec_seq_parts.append(
+                    seg_rec_seq[sample_idx, prev_boundary_pos:boundary_pos])
+                prev_boundary_pos = boundary_pos
+            rec_seq = torch.cat(rec_seq_parts)
+            cur_length = rec_seq.size(0)
+            matches = (rec_seq == inputs[sample_idx, :cur_length]).float()
+            rec_acc += matches.mean()
+        rec_acc /= batch_size
         return rec_acc, rec_seq
 
-    def forward(self, inputs, evaluate=False):
+    def forward(self, inputs, lengths, evaluate=False):
 
         # Embed inputs.
         embeddings = self.embed(inputs)
 
         # Create initial mask.
-        mask = torch.ones(inputs.size(0), inputs.size(1), 1)
-        if inputs.is_cuda:
-            mask = mask.cuda()
+        mask = torch.ones(
+            inputs.size(0), inputs.size(1), device=inputs.device)
 
         all_b = {'logits': [], 'samples': []}
         all_z = {'logits': [], 'samples': []}
@@ -231,7 +237,7 @@ class CompILE(nn.Module):
 
             # Get boundaries (b) for current segment.
             logits_b, sample_b = self.get_boundaries(
-                encodings, seg_id, evaluate)
+                encodings, seg_id, lengths, evaluate)
             all_b['logits'].append(logits_b)
             all_b['samples'].append(sample_b)
 

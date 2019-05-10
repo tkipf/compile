@@ -5,7 +5,7 @@ import utils
 import modules
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--iterations', type=int, default=200,
+parser.add_argument('--iterations', type=int, default=100,
                     help='Number of training iterations.')
 parser.add_argument('--learning-rate', type=float, default=1e-2,
                     help='Learning rate.')
@@ -15,7 +15,7 @@ parser.add_argument('--latent-dim', type=int, default=32,
                     help='Dimensionality of latent variables.')
 parser.add_argument('--latent-dist', type=str, default='gaussian',
                     help='Choose: "gaussian" or "concrete" latent variables.')
-parser.add_argument('--batch-size', type=int, default=256,
+parser.add_argument('--batch-size', type=int, default=512,
                     help='Mini-batch size (for averaging gradients).')
 
 parser.add_argument('--num-symbols', type=int, default=5,
@@ -23,9 +23,9 @@ parser.add_argument('--num-symbols', type=int, default=5,
 parser.add_argument('--num-segments', type=int, default=3,
                     help='Number of segments in data generation.')
 
-parser.add_argument('--no-cuda', action='store_true', default=True,
+parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='Disable CUDA training.')
-parser.add_argument('--log-interval', type=int, default=1,
+parser.add_argument('--log-interval', type=int, default=5,
                     help='Logging interval.')
 
 args = parser.parse_args()
@@ -34,7 +34,7 @@ args.cuda = not args.no_cuda and torch.cuda.is_available()
 device = torch.device('cuda' if args.cuda else 'cpu')
 
 model = modules.CompILE(
-    input_dim=args.num_symbols + 1,  # +1 for EOS symbol.
+    input_dim=args.num_symbols + 1,  # +1 for EOS/Padding symbol.
     hidden_dim=args.hidden_dim,
     latent_dim=args.latent_dim,
     max_num_segments=args.num_segments,
@@ -50,33 +50,36 @@ for step in range(args.iterations):
     batch_loss = 0
     batch_acc = 0
     optimizer.zero_grad()
+
+    # Generate data.
+    data = []
     for _ in range(args.batch_size):
-
-        # Generate data.
-        data = utils.generate_toy_data(
+        data.append(utils.generate_toy_data(
             num_symbols=args.num_symbols,
-            num_segments=args.num_segments)
-        data = data.to(device)
+            num_segments=args.num_segments))
+    lengths = torch.tensor(list(map(len, data)))
+    lengths = lengths.to(device)
 
-        # Run forward pass.
-        model.train()
-        loss, nll, kl_z, kl_b = model.get_losses(data)
+    data = torch.nn.utils.rnn.pad_sequence(data, batch_first=True)
+    data = data.to(device)
 
+    # Run forward pass.
+    model.train()
+    loss, nll, kl_z, kl_b = model.get_losses(data, lengths)
+
+    loss.backward()
+    optimizer.step()
+
+    if step % args.log_interval == 0:
         # Run evaluation.
         model.eval()
-        acc, rec = model.get_reconstruction_accuracy(data)
+        acc, rec = model.get_reconstruction_accuracy(data, lengths)
 
         # Accumulate metrics.
-        batch_acc += acc.item() / args.batch_size
-        batch_loss += nll.item() / args.batch_size
-
-        # Accumulate gradients.
-        loss = loss / args.batch_size
-        loss.backward()
-
-    optimizer.step()
-    if step % args.log_interval == 0:
+        batch_acc += acc.item()
+        batch_loss += nll.item()
         print('step: {}, nll_train: {:.6f}, rec_acc_eval: {:.3f}'.format(
             step, batch_loss, batch_acc))
-        print('input sample: {}'.format(data[0, :-1]))
+        print('input sample: {}'.format(data[-1, :lengths[-1] - 1]))
         print('reconstruction: {}'.format(rec))
+

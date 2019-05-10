@@ -79,4 +79,4 @@ def generate_toy_data(num_symbols=5, num_segments=3, max_segment_len=5):
         segment_len = np.random.choice(np.arange(1, max_segment_len))
         seq += [symbols[seg_id]] * segment_len
     seq += [0]
-    return torch.tensor(seq, dtype=torch.int64)[None, :]
+    return torch.tensor(seq, dtype=torch.int64)
