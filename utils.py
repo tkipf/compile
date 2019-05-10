@@ -62,6 +62,7 @@ def poisson_categorical_log_prior(length, rate, device):
         1, length + 1, dtype=torch.float32, device=device).unsqueeze(0)
     log_prob_unnormalized = torch.log(
         rate) * values - rate - (values + 1).lgamma()
+    # TODO(tkipf): Length-sensitive normalization.
     return F.log_softmax(log_prob_unnormalized, dim=1)  # Normalize.
 
 
