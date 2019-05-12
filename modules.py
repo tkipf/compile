@@ -15,15 +15,11 @@ class CompILE(nn.Module):
         max_num_segments: Maximum number of segments to predict.
         temp_b: Gumbel softmax temperature for boundary variables (b).
         temp_z: Temperature for latents (z), only if latent_dist='concrete'.
-        beta_b: Scaling factor for KL term of boundary variables (b).
-        beta_z: Scaling factor for KL term of latents (z).
-        prior_rate: Rate (lambda) for Poisson prior.
         latent_dist: Whether to use Gaussian latents ('gaussian') or concrete /
             Gumbel softmax latents ('concrete').
     """
     def __init__(self, input_dim, hidden_dim, latent_dim, max_num_segments,
-                 temp_b=1., temp_z=1., beta_b=.1, beta_z=.1, prior_rate=3.,
-                 latent_dist='gaussian'):
+                 temp_b=1., temp_z=1., latent_dist='gaussian'):
         super(CompILE, self).__init__()
 
         self.input_dim = input_dim
@@ -32,9 +28,6 @@ class CompILE(nn.Module):
         self.max_num_segments = max_num_segments
         self.temp_b = temp_b
         self.temp_z = temp_z
-        self.beta_b = beta_b
-        self.beta_z = beta_z
-        self.prior_rate = prior_rate
         self.latent_dist = latent_dist
 
         self.embed = nn.Embedding(input_dim, hidden_dim)
@@ -47,6 +40,8 @@ class CompILE(nn.Module):
             self.head_z_2 = nn.Linear(hidden_dim, latent_dim * 2)
         elif latent_dist == 'concrete':
             self.head_z_2 = nn.Linear(hidden_dim, latent_dim)
+        else:
+            raise ValueError('Invalid argument for `latent_dist`.')
 
         self.head_b_1 = nn.Linear(hidden_dim, hidden_dim)  # Boundaries (b).
         self.head_b_2 = nn.Linear(hidden_dim, 1)
@@ -114,6 +109,8 @@ class CompILE(nn.Module):
             else:
                 sample_z_idx = torch.argmax(logits_z, dim=1)
                 sample_z = utils.to_one_hot(sample_z_idx, logits_z.size(1))
+        else:
+            raise ValueError('Invalid argument for `latent_dist`.')
 
         return logits_z, sample_z
 

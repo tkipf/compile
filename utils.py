@@ -99,18 +99,28 @@ def get_segment_probs(all_b_samples, all_masks, segment_id):
         return neg_cumsum
 
 
-def get_losses(model, inputs, outputs):
-    """Get losses (NLL, KL divergences and neg. ELBO)."""
-    targets = inputs.view(-1)
+def get_losses(inputs, outputs, args, beta_b=.1, beta_z=.1, prior_rate=3.,):
+    """Get losses (NLL, KL divergences and neg. ELBO).
 
+    Args:
+        inputs: Padded input sequences.
+        outputs: CompILE model output tuple.
+        args: Argument dict from `ArgumentParser`.
+        beta_b: Scaling factor for KL term of boundary variables (b).
+        beta_z: Scaling factor for KL term of latents (z).
+        prior_rate: Rate (lambda) for Poisson prior.
+    """
+
+    targets = inputs.view(-1)
     all_encs, all_recs, all_masks, all_b, all_z = outputs
+    input_dim = args.num_symbols + 1
 
     nll = 0.
     kl_z = 0.
-    for seg_id in range(model.max_num_segments):
+    for seg_id in range(args.num_segments):
         seg_prob = get_segment_probs(
             all_b['samples'], all_masks, seg_id)
-        preds = all_recs[seg_id].view(-1, model.input_dim)
+        preds = all_recs[seg_id].view(-1, input_dim)
         seg_loss = F.cross_entropy(
             preds, targets, reduction='none').view(-1, inputs.size(1))
 
@@ -118,27 +128,29 @@ def get_losses(model, inputs, outputs):
         nll += (seg_loss[:, :-1] * seg_prob[:, :-1]).sum(1).mean(0)
 
         # KL divergence on z.
-        if model.latent_dist == 'gaussian':
+        if args.latent_dist == 'gaussian':
             mu, log_var = torch.split(
-                all_z['logits'][seg_id], model.latent_dim, dim=1)
+                all_z['logits'][seg_id], args.latent_dim, dim=1)
             kl_z += kl_gaussian(mu, log_var).mean(0)
-        elif model.latent_dist == 'concrete':
+        elif args.latent_dist == 'concrete':
             kl_z += kl_categorical_uniform(
                 F.softmax(all_z['logits'][seg_id], dim=-1)).mean(0)
+        else:
+            raise ValueError('Invalid argument for `latent_dist`.')
 
     # KL divergence on b (first segment only, ignore first time step).
     # TODO(tkipf): Implement alternative prior on soft segment length.
     probs_b = F.softmax(all_b['logits'][0], dim=-1)
     log_prior_b = poisson_categorical_log_prior(
-        probs_b.size(1), model.prior_rate, device=inputs.device)
-    kl_b = model.max_num_segments * kl_categorical(
+        probs_b.size(1), prior_rate, device=inputs.device)
+    kl_b = args.num_segments * kl_categorical(
         probs_b[:, 1:], log_prior_b[:, 1:]).mean(0)
 
-    loss = nll + model.beta_z * kl_z + model.beta_b * kl_b
+    loss = nll + beta_z * kl_z + beta_b * kl_b
     return loss, nll, kl_z, kl_b
 
 
-def get_reconstruction_accuracy(model, inputs, outputs):
+def get_reconstruction_accuracy(inputs, outputs, args):
     """Calculate reconstruction accuracy (averaged over sequence length)."""
 
     all_encs, all_recs, all_masks, all_b, all_z = outputs
@@ -150,7 +162,7 @@ def get_reconstruction_accuracy(model, inputs, outputs):
     for sample_idx in range(batch_size):
         prev_boundary_pos = 0
         rec_seq_parts = []
-        for seg_id in range(model.max_num_segments):
+        for seg_id in range(args.num_segments):
             boundary_pos = torch.argmax(
                 all_b['samples'][seg_id], dim=-1)[sample_idx]
             if prev_boundary_pos > boundary_pos:

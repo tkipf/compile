@@ -66,7 +66,7 @@ for step in range(args.iterations):
     # Run forward pass.
     model.train()
     outputs = model.forward(inputs, lengths)
-    loss, nll, kl_z, kl_b = utils.get_losses(model, inputs, outputs)
+    loss, nll, kl_z, kl_b = utils.get_losses(inputs, outputs, args)
 
     loss.backward()
     optimizer.step()
@@ -75,7 +75,7 @@ for step in range(args.iterations):
         # Run evaluation.
         model.eval()
         outputs = model.forward(inputs, lengths, evaluate=True)
-        acc, rec = utils.get_reconstruction_accuracy(model, inputs, outputs)
+        acc, rec = utils.get_reconstruction_accuracy(inputs, outputs, args)
 
         # Accumulate metrics.
         batch_acc += acc.item()
