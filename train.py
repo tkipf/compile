@@ -74,7 +74,7 @@ for step in range(args.iterations):
     if step % args.log_interval == 0:
         # Run evaluation.
         model.eval()
-        outputs = model.forward(inputs, lengths, evaluate=True)
+        outputs = model.forward(inputs, lengths)
         acc, rec = utils.get_reconstruction_accuracy(inputs, outputs, args)
 
         # Accumulate metrics.

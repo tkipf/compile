@@ -62,7 +62,7 @@ class CompILE(nn.Module):
             outputs.append(hidden[0])
         return torch.stack(outputs, dim=1)
 
-    def get_boundaries(self, encodings, segment_id, lengths, evaluate=False):
+    def get_boundaries(self, encodings, segment_id, lengths):
         """Get boundaries (b) for a single segment in batch."""
         if segment_id == self.max_num_segments - 1:
             # Last boundary is always placed on last sequence element.
@@ -77,7 +77,7 @@ class CompILE(nn.Module):
                 encodings.size(0), 1, device=encodings.device) * utils.NEG_INF
             # TODO(tkipf): Mask out padded positions with large neg. value.
             logits_b = torch.cat([neg_inf, logits_b[:, 1:]], dim=1)
-            if not evaluate:
+            if self.training:
                 sample_b = utils.gumbel_softmax_sample(
                     logits_b, temp=self.temp_b)
             else:
@@ -86,7 +86,7 @@ class CompILE(nn.Module):
 
         return logits_b, sample_b
 
-    def get_latents(self, encodings, probs_b, evaluate=False):
+    def get_latents(self, encodings, probs_b):
         """Read out latents (z) form input encodings for a single segment."""
         readout_mask = probs_b[:, 1:, None]  # Offset readout by 1 to left.
         readout = (encodings[:, :-1] * readout_mask).sum(1)
@@ -95,7 +95,7 @@ class CompILE(nn.Module):
 
         # Gaussian latents.
         if self.latent_dist == 'gaussian':
-            if not evaluate:
+            if self.training:
                 mu, log_var = torch.split(logits_z, self.latent_dim, dim=1)
                 sample_z = utils.gaussian_sample(mu, log_var)
             else:
@@ -103,7 +103,7 @@ class CompILE(nn.Module):
 
         # Concrete / Gumbel softmax latents.
         elif self.latent_dist == 'concrete':
-            if not evaluate:
+            if self.training:
                 sample_z = utils.gumbel_softmax_sample(
                     logits_z, temp=self.temp_z)
             else:
@@ -131,7 +131,7 @@ class CompILE(nn.Module):
         else:
             return None
 
-    def forward(self, inputs, lengths, evaluate=False):
+    def forward(self, inputs, lengths):
 
         # Embed inputs.
         embeddings = self.embed(inputs)
@@ -153,13 +153,13 @@ class CompILE(nn.Module):
 
             # Get boundaries (b) for current segment.
             logits_b, sample_b = self.get_boundaries(
-                encodings, seg_id, lengths, evaluate)
+                encodings, seg_id, lengths)
             all_b['logits'].append(logits_b)
             all_b['samples'].append(sample_b)
 
             # Get latents (z) for current segment.
             logits_z, sample_z = self.get_latents(
-                encodings, sample_b, evaluate)
+                encodings, sample_b)
             all_z['logits'].append(logits_z)
             all_z['samples'].append(sample_z)
 
