@@ -5,13 +5,6 @@ from torch import nn
 import utils
 
 
-def get_lstm_initial_state(batch_size, hidden_dim, device):
-    """Get empty (zero) initial states for LSTM."""
-    hidden_state = torch.zeros(batch_size, hidden_dim, device=device)
-    cell_state = torch.zeros(batch_size, hidden_dim, device=device)
-    return hidden_state, cell_state
-
-
 class CompILE(nn.Module):
     """CompILE example implementation.
 
@@ -64,7 +57,7 @@ class CompILE(nn.Module):
 
     def masked_encode(self, inputs, mask):
         """Run masked RNN encoder on input sequence."""
-        hidden = get_lstm_initial_state(
+        hidden = utils.get_lstm_initial_state(
             inputs.size(0), self.hidden_dim, device=inputs.device)
         outputs = []
         for step in range(inputs.size(1)):

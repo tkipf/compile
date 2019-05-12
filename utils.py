@@ -83,6 +83,13 @@ def generate_toy_data(num_symbols=5, num_segments=3, max_segment_len=5):
     return torch.tensor(seq, dtype=torch.int64)
 
 
+def get_lstm_initial_state(batch_size, hidden_dim, device):
+    """Get empty (zero) initial states for LSTM."""
+    hidden_state = torch.zeros(batch_size, hidden_dim, device=device)
+    cell_state = torch.zeros(batch_size, hidden_dim, device=device)
+    return hidden_state, cell_state
+
+
 def get_segment_probs(all_b_samples, all_masks, segment_id):
     """Get segment probabilities for a particular segment ID."""
     neg_cumsum = 1 - torch.cumsum(all_b_samples[segment_id], dim=1)
