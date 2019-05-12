@@ -5,6 +5,13 @@ from torch import nn
 import utils
 
 
+def get_lstm_initial_state(batch_size, hidden_dim, device):
+    """Get empty (zero) initial states for LSTM."""
+    hidden_state = torch.zeros(batch_size, hidden_dim, device=device)
+    cell_state = torch.zeros(batch_size, hidden_dim, device=device)
+    return hidden_state, cell_state
+
+
 class CompILE(nn.Module):
     """CompILE example implementation.
 
@@ -55,18 +62,10 @@ class CompILE(nn.Module):
         self.decode_1 = nn.Linear(latent_dim, hidden_dim)
         self.decode_2 = nn.Linear(hidden_dim, input_dim)
 
-    def get_lstm_initial_state(self, batch_size, cuda=False):
-        """Get empty (zero) initial states for LSTM."""
-        hidden_state = torch.zeros(batch_size, self.hidden_dim)
-        cell_state = torch.zeros(batch_size, self.hidden_dim)
-        if cuda:
-            hidden_state = hidden_state.cuda()
-            cell_state = cell_state.cuda()
-        return hidden_state, cell_state
-
     def masked_encode(self, inputs, mask):
         """Run masked RNN encoder on input sequence."""
-        hidden = self.get_lstm_initial_state(inputs.size(0), inputs.is_cuda)
+        hidden = get_lstm_initial_state(
+            inputs.size(0), self.hidden_dim, device=inputs.device)
         outputs = []
         for step in range(inputs.size(1)):
             hidden = self.lstm_cell(inputs[:, step], hidden)
@@ -141,80 +140,6 @@ class CompILE(nn.Module):
             return mask
         else:
             return None
-
-    def get_segment_probs(self, all_b_samples, all_masks, segment_id):
-        """Get segment probabilities for a particular segment ID."""
-        neg_cumsum = 1 - torch.cumsum(all_b_samples[segment_id], dim=1)
-        if segment_id > 0:
-            return neg_cumsum * all_masks[segment_id - 1]
-        else:
-            return neg_cumsum
-
-    def get_losses(self, inputs, lengths):
-        """Get losses (NLL, KL divergences and neg. ELBO)."""
-        targets = inputs.view(-1)
-        all_encs, all_recs, all_masks, all_b, all_z = self.forward(
-            inputs, lengths)
-
-        nll = 0.
-        kl_z = 0.
-        for seg_id in range(self.max_num_segments):
-            seg_prob = self.get_segment_probs(
-                all_b['samples'], all_masks, seg_id)
-            preds = all_recs[seg_id].view(-1, self.input_dim)
-            seg_loss = F.cross_entropy(
-                preds, targets, reduction='none').view(-1, inputs.size(1))
-
-            # Ignore EOS token (last sequence element) in loss.
-            nll += (seg_loss[:, :-1] * seg_prob[:, :-1]).sum(1).mean(0)
-
-            # KL divergence on z.
-            if self.latent_dist == 'gaussian':
-                mu, log_var = torch.split(
-                    all_z['logits'][seg_id], self.latent_dim, dim=1)
-                kl_z += utils.kl_gaussian(mu, log_var).mean(0)
-            elif self.latent_dist == 'concrete':
-                kl_z += utils.kl_categorical_uniform(
-                    F.softmax(all_z['logits'][seg_id], dim=-1)).mean(0)
-
-        # KL divergence on b (first segment only, ignore first time step).
-        # TODO(tkipf): Implement alternative prior on soft segment length.
-        probs_b = F.softmax(all_b['logits'][0], dim=-1)
-        log_prior_b = utils.poisson_categorical_log_prior(
-            probs_b.size(1), self.prior_rate, device=inputs.device)
-        kl_b = self.max_num_segments * utils.kl_categorical(
-            probs_b[:, 1:], log_prior_b[:, 1:]).mean(0)
-
-        loss = nll + self.beta_z * kl_z + self.beta_b * kl_b
-        return loss, nll, kl_z, kl_b
-
-    def get_reconstruction_accuracy(self, inputs, lengths):
-        """Calculate reconstruction accuracy (averaged over sequence length)."""
-        all_encs, all_recs, all_masks, all_b, all_z = self.forward(
-            inputs, lengths, evaluate=True)
-
-        batch_size = inputs.size(0)
-
-        rec_seq = None
-        rec_acc = 0.
-        for sample_idx in range(batch_size):
-            prev_boundary_pos = 0
-            rec_seq_parts = []
-            for seg_id in range(self.max_num_segments):
-                boundary_pos = torch.argmax(
-                    all_b['samples'][seg_id], dim=-1)[sample_idx]
-                if prev_boundary_pos > boundary_pos:
-                    boundary_pos = prev_boundary_pos
-                seg_rec_seq = torch.argmax(all_recs[seg_id], dim=-1)
-                rec_seq_parts.append(
-                    seg_rec_seq[sample_idx, prev_boundary_pos:boundary_pos])
-                prev_boundary_pos = boundary_pos
-            rec_seq = torch.cat(rec_seq_parts)
-            cur_length = rec_seq.size(0)
-            matches = (rec_seq == inputs[sample_idx, :cur_length]).float()
-            rec_acc += matches.mean()
-        rec_acc /= batch_size
-        return rec_acc, rec_seq
 
     def forward(self, inputs, lengths, evaluate=False):
 

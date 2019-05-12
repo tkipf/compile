@@ -81,3 +81,80 @@ def generate_toy_data(num_symbols=5, num_segments=3, max_segment_len=5):
         seq += [symbols[seg_id]] * segment_len
     seq += [0]
     return torch.tensor(seq, dtype=torch.int64)
+
+
+def get_segment_probs(all_b_samples, all_masks, segment_id):
+    """Get segment probabilities for a particular segment ID."""
+    neg_cumsum = 1 - torch.cumsum(all_b_samples[segment_id], dim=1)
+    if segment_id > 0:
+        return neg_cumsum * all_masks[segment_id - 1]
+    else:
+        return neg_cumsum
+
+
+def get_losses(model, inputs, outputs):
+    """Get losses (NLL, KL divergences and neg. ELBO)."""
+    targets = inputs.view(-1)
+
+    all_encs, all_recs, all_masks, all_b, all_z = outputs
+
+    nll = 0.
+    kl_z = 0.
+    for seg_id in range(model.max_num_segments):
+        seg_prob = get_segment_probs(
+            all_b['samples'], all_masks, seg_id)
+        preds = all_recs[seg_id].view(-1, model.input_dim)
+        seg_loss = F.cross_entropy(
+            preds, targets, reduction='none').view(-1, inputs.size(1))
+
+        # Ignore EOS token (last sequence element) in loss.
+        nll += (seg_loss[:, :-1] * seg_prob[:, :-1]).sum(1).mean(0)
+
+        # KL divergence on z.
+        if model.latent_dist == 'gaussian':
+            mu, log_var = torch.split(
+                all_z['logits'][seg_id], model.latent_dim, dim=1)
+            kl_z += kl_gaussian(mu, log_var).mean(0)
+        elif model.latent_dist == 'concrete':
+            kl_z += kl_categorical_uniform(
+                F.softmax(all_z['logits'][seg_id], dim=-1)).mean(0)
+
+    # KL divergence on b (first segment only, ignore first time step).
+    # TODO(tkipf): Implement alternative prior on soft segment length.
+    probs_b = F.softmax(all_b['logits'][0], dim=-1)
+    log_prior_b = poisson_categorical_log_prior(
+        probs_b.size(1), model.prior_rate, device=inputs.device)
+    kl_b = model.max_num_segments * kl_categorical(
+        probs_b[:, 1:], log_prior_b[:, 1:]).mean(0)
+
+    loss = nll + model.beta_z * kl_z + model.beta_b * kl_b
+    return loss, nll, kl_z, kl_b
+
+
+def get_reconstruction_accuracy(model, inputs, outputs):
+    """Calculate reconstruction accuracy (averaged over sequence length)."""
+
+    all_encs, all_recs, all_masks, all_b, all_z = outputs
+
+    batch_size = inputs.size(0)
+
+    rec_seq = []
+    rec_acc = 0.
+    for sample_idx in range(batch_size):
+        prev_boundary_pos = 0
+        rec_seq_parts = []
+        for seg_id in range(model.max_num_segments):
+            boundary_pos = torch.argmax(
+                all_b['samples'][seg_id], dim=-1)[sample_idx]
+            if prev_boundary_pos > boundary_pos:
+                boundary_pos = prev_boundary_pos
+            seg_rec_seq = torch.argmax(all_recs[seg_id], dim=-1)
+            rec_seq_parts.append(
+                seg_rec_seq[sample_idx, prev_boundary_pos:boundary_pos])
+            prev_boundary_pos = boundary_pos
+        rec_seq.append(torch.cat(rec_seq_parts))
+        cur_length = rec_seq[sample_idx].size(0)
+        matches = rec_seq[sample_idx] == inputs[sample_idx, :cur_length]
+        rec_acc += matches.float().mean()
+    rec_acc /= batch_size
+    return rec_acc, rec_seq

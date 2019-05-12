@@ -60,12 +60,13 @@ for step in range(args.iterations):
     lengths = torch.tensor(list(map(len, data)))
     lengths = lengths.to(device)
 
-    data = torch.nn.utils.rnn.pad_sequence(data, batch_first=True)
-    data = data.to(device)
+    inputs = torch.nn.utils.rnn.pad_sequence(data, batch_first=True)
+    inputs = inputs.to(device)
 
     # Run forward pass.
     model.train()
-    loss, nll, kl_z, kl_b = model.get_losses(data, lengths)
+    outputs = model.forward(inputs, lengths)
+    loss, nll, kl_z, kl_b = utils.get_losses(model, inputs, outputs)
 
     loss.backward()
     optimizer.step()
@@ -73,13 +74,14 @@ for step in range(args.iterations):
     if step % args.log_interval == 0:
         # Run evaluation.
         model.eval()
-        acc, rec = model.get_reconstruction_accuracy(data, lengths)
+        outputs = model.forward(inputs, lengths, evaluate=True)
+        acc, rec = utils.get_reconstruction_accuracy(model, inputs, outputs)
 
         # Accumulate metrics.
         batch_acc += acc.item()
         batch_loss += nll.item()
         print('step: {}, nll_train: {:.6f}, rec_acc_eval: {:.3f}'.format(
             step, batch_loss, batch_acc))
-        print('input sample: {}'.format(data[-1, :lengths[-1] - 1]))
-        print('reconstruction: {}'.format(rec))
+        print('input sample: {}'.format(inputs[-1, :lengths[-1] - 1]))
+        print('reconstruction: {}'.format(rec[-1]))
 
